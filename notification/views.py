@@ -4,7 +4,7 @@ from django.http import HttpResponseRedirect, Http404
 from django.template import RequestContext
 
 from django.contrib.auth.decorators import login_required
-from django.contrib.syndication.views import feed
+from django.contrib.syndication.views import Feed
 
 from notification.models import *
 from notification.decorators import basic_auth_required, simple_basic_auth_callback
@@ -16,10 +16,15 @@ def feed_for_user(request):
     """
     An atom feed for all unarchived :model:`notification.Notice`s for a user.
     """
-    url = "feed/%s" % request.user.username
-    return feed(request, url, {
-        "feed": NoticeUserFeed,
-    })
+
+    try:
+        feedgen = NoticeUserFeed('feed', request).get_feed(request.user.username)
+    except FeedDoesNotExist:
+        raise Http404("Invalid feed parameters. Slug %r is valid, but other parameters, or lack thereof, are not." % slug)
+
+    response = HttpResponse(mimetype=feedgen.mime_type)
+    feedgen.write(response, 'utf-8')
+    return response
 
 
 @login_required
